@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -116,7 +117,7 @@ func (*manager) synca(bdl string) {
 					} else {
 						output.WriteString("cloned.")
 					}
-				} else { // update
+				} else if headAttached(b.dest) { // update, unless git is in detached HEAD
 					cmd.Dir = b.dest
 					cmd.Args = strings.Fields("git pull")
 					out, err := cmd.Output()
@@ -143,6 +144,21 @@ func (*manager) synca(bdl string) {
 		}()
 		routines++
 	}
+}
+
+func headAttached(path string) bool {
+	f, err := os.Open(path + "/.git/HEAD")
+	if err != nil {
+		return true // assume attached
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), []byte("/")) {
+			return true
+		}
+	}
+	return false
 }
 
 // clean removes disabled bundles from the file system

@@ -28,9 +28,10 @@ type bundle struct {
 
 var (
 	update           = flag.Bool("u", false, "update bundles")
+	_filter          = flag.String("f", ".", "filter bundles with a go regexp")
+	filter           = regexp.Regexp{}
 	clean            = flag.Bool("c", false, "clean bundles")
 	dry              = flag.Bool("n", false, "dry run")
-	filter           = flag.String("f", ".", "filter bundles")
 	maxRoutines      = flag.Int("r", 12, "max number of routines")
 	routines         = 0
 	ch               = make(chan bundle, 9)
@@ -45,17 +46,15 @@ var (
 
 func init() {
 	flag.Parse()
+	filter = *regexp.MustCompile(*_filter)
 	if gitNotExist != nil {
 		log.Fatal(gitNotExist)
 	}
 }
 
 func main() {
-	f := regexp.MustCompile(*filter)
 	for _, b := range bundles {
-		if f.MatchString(b) {
-			vundle.synca(b)
-		}
+		vundle.synca(b)
 	}
 	close(ch)
 
@@ -77,6 +76,10 @@ func (*manager) synca(bdl string) {
 		} else {
 			b.branch = (bdl)[bindex+1:]
 		}
+	}
+
+	if !filter.MatchString(b.repo) {
+		return
 	}
 
 	b.dest = root + "/" + strings.Split(b.repo, "/")[1]
@@ -204,7 +207,7 @@ func (*manager) clean(bundles []string) {
 }
 
 // bundles returns the bundle list obtained from Vim.
-// The format of a bundle is "author/repo[:branch][/sub/directory]", with
+// The format of a bundle is "author/project[:branch][/sub/directory]", with
 // "/sub/directory" cut off.
 func getBundles(bs ...string) []string {
 	args := []string{

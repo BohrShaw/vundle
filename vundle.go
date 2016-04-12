@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ var (
 	update           = flag.Bool("u", false, "update bundles")
 	clean            = flag.Bool("c", false, "clean bundles")
 	dry              = flag.Bool("n", false, "dry run")
+	filter           = flag.String("f", ".", "filter bundles")
 	maxRoutines      = flag.Int("r", 12, "max number of routines")
 	routines         = 0
 	ch               = make(chan bundle, 9)
@@ -49,8 +51,11 @@ func init() {
 }
 
 func main() {
+	f := regexp.MustCompile(*filter)
 	for _, b := range bundles {
-		vundle.synca(b)
+		if f.MatchString(b) {
+			vundle.synca(b)
+		}
 	}
 	close(ch)
 

@@ -214,18 +214,18 @@ func getBundles(bs ...string) []string {
 	bundles := append(strings.Fields(string(out)), bs...)
 
 	for i, v := range bundles {
-		if strings.Count(v, "/") > 1 {
-			var slash1 bool
-			idx := strings.IndexFunc(v,
-				func(r rune) (t bool) {
-					if r == '/' {
-						if slash1 == true {
-							t = true
-						}
-						slash1 = true
-					}
-					return
-				})
+		var oneSlash bool
+		// index the second slash
+		idx := strings.IndexFunc(v, func(r rune) bool {
+			if r == '/' {
+				if oneSlash == true {
+					return true
+				}
+				oneSlash = true
+			}
+			return false
+		})
+		if idx != -1 {
 			bundles[i] = v[:idx]
 		}
 	}

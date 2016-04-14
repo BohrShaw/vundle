@@ -20,10 +20,9 @@ import (
 	"sync"
 )
 
-type manager struct{}
-type bundle struct {
-	repo, branch, dest string
-	ifclone            bool
+// Bundle specify the repository of format "author/project" and the branch.
+type Bundle struct {
+	repo, branch string
 }
 
 var (
@@ -31,13 +30,9 @@ var (
 	_filter          = flag.String("f", ".", "filter bundles with a go regexp")
 	filter           = regexp.Regexp{}
 	clean            = flag.Bool("c", false, "clean bundles")
-	dry              = flag.Bool("n", false, "dry run")
-	maxRoutines      = flag.Int("r", 12, "max number of routines")
-	routines         = 0
-	ch               = make(chan bundle, 9)
-	wg               = sync.WaitGroup{} // goroutines count
-	vundle           = &manager{}
-	bundles          = getBundles()
+	dryrun           = flag.Bool("n", false, "dry run (noop)")
+	routines         = flag.Int("r", 12, "max number of routines")
+	bundles          = Bundles()
 	_user, _         = user.Current()
 	root             = _user.HomeDir + "/.vim/bundle"
 	git, gitNotExist = exec.LookPath("git")
@@ -53,107 +48,95 @@ func init() {
 }
 
 func main() {
+	ch := make(chan Bundle, 9)
+	wg := sync.WaitGroup{} // goroutines count
+	routineCount := 0
 	for _, b := range bundles {
-		vundle.synca(b)
+		if filter.MatchString(b.repo) {
+			ch <- b
+			if routineCount <= *routines {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for b := range ch {
+						Sync(b)
+					}
+				}()
+				routineCount++
+			}
+		}
 	}
 	close(ch)
 
 	wg.Wait()
-	helptags()
+	Helptags()
 
 	if *clean {
-		vundle.clean(bundles)
+		Clean()
 	}
 }
 
-// synca install or update a bundle.
-func (*manager) synca(bdl string) {
-	b := bundle{repo: bdl}
-	if bindex := strings.Index(bdl, ":"); bindex >= 0 {
-		b.repo = (bdl)[:bindex]
-		if len(bdl) == bindex+1 {
-			b.branch = runtime.GOOS + "_" + runtime.GOARCH
-		} else {
-			b.branch = (bdl)[bindex+1:]
+// Sync clone or update a bundle
+func Sync(b Bundle) {
+	cmd := &exec.Cmd{Path: git}
+	url := "https://github.com/" + b.repo
+	dest := root + "/" + strings.Split(b.repo, "/")[1]
+	var output bytes.Buffer
+
+	_, err := os.Stat(dest)
+	if os.IsNotExist(err) { // clone
+		args := make([]string, 0, 10)
+		args = append(args, git, "clone", "--depth", "1", "--recursive", "--quiet")
+		if b.branch != "" {
+			args = append(args, "--branch", b.branch)
 		}
-	}
+		cmd.Args = append(args, url, dest)
 
-	if !filter.MatchString(b.repo) {
-		return
-	}
-
-	b.dest = root + "/" + strings.Split(b.repo, "/")[1]
-	_, err := os.Stat(b.dest)
-	b.ifclone = os.IsNotExist(err)
-	if !b.ifclone && !*update {
-		return
-	}
-
-	// Dispatch the time-consuming work to a goroutine.
-	ch <- b
-	if routines <= *maxRoutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for b := range ch {
-				cmd := &exec.Cmd{Path: git}
-				url := "https://github.com/" + b.repo
-				var output bytes.Buffer
-				if b.ifclone { // clone
-					args := make([]string, 0, 10)
-					args = append(args, git, "clone", "--depth", "1", "--recursive", "--quiet")
-					if b.branch != "" {
-						args = append(args, "--branch", b.branch)
-					}
-					cmd.Args = append(args, url, b.dest)
-
-					output.WriteString(sep + url + " ")
-					err := cmd.Run()
-					if err != nil {
-						// Assume the branch doesn't exist and try to clone the default branch
-						if b.branch != "" {
-							// As of go1.5.1 linux/386, a Cmd struct can't be reused after calling its Run, Output or CombinedOutput methods.
-							err := exec.Command(git, append(args[:len(args)-2], url, b.dest)[1:]...).Run()
-							if err != nil {
-								output.WriteString("can't be cloned!")
-							} else {
-								output.WriteString("cloned, but the branch " + b.branch + " doesn't exist.")
-							}
-						} else {
-							output.WriteString("can't be cloned!")
-						}
-					} else {
-						output.WriteString("cloned.")
-					}
-				} else if headAttached(b.dest) { // update, unless git is in detached HEAD
-					cmd.Dir = b.dest
-					cmd.Args = strings.Fields("git pull")
-					out, err := cmd.Output()
-					if err != nil {
-						output.WriteString(sep + url + " pull failed: " + err.Error())
-					} else if len(out) != 0 && out[0] != 'A' { // out isn't "Already up-to-date"
-						output.WriteString(sep + url + " updated.\n")
-						log, _ := exec.Command(git, "-C", b.dest, "log", "--no-merges", "--oneline", "ORIG_HEAD..HEAD").Output()
-						output.Write(bytes.TrimSpace(log))
-						// Update submodules
-						if _, err := os.Stat(b.dest + "/.gitmodules"); !os.IsNotExist(err) {
-							exec.Command(git, "-C", b.dest, "submodule", "sync").Run()
-							err := exec.Command(git, "-C", b.dest, "submodule", "update", "--init", "--recursive").Run()
-							if err != nil {
-								output.WriteString("\n------------ Submodule update failed: " + err.Error())
-							}
-						}
-					}
+		output.WriteString(sep + url + " ")
+		err := cmd.Run()
+		if err != nil {
+			// Assume the branch doesn't exist and try to clone the default branch
+			if b.branch != "" {
+				// As of go1.5.1 linux/386, a Cmd struct can't be reused after calling its Run, Output or CombinedOutput methods.
+				err := exec.Command(git, append(args[:len(args)-2], url, dest)[1:]...).Run()
+				if err != nil {
+					output.WriteString("can't be cloned!")
+				} else {
+					output.WriteString("cloned, but the branch " + b.branch + " doesn't exist.")
 				}
-				if o := output.String(); len(o) != 0 {
-					fmt.Println(o)
+			} else {
+				output.WriteString("can't be cloned!")
+			}
+		} else {
+			output.WriteString("cloned.")
+		}
+	} else if *update && headAttached(dest) {
+		cmd.Dir = dest
+		cmd.Args = strings.Fields("git pull")
+		out, err := cmd.Output()
+		if err != nil {
+			output.WriteString(sep + url + " pull failed: " + err.Error())
+		} else if len(out) != 0 && out[0] != 'A' { // out isn't "Already up-to-date"
+			output.WriteString(sep + url + " updated.\n")
+			log, _ := exec.Command(git, "-C", dest, "log", "--no-merges", "--oneline", "ORIG_HEAD..HEAD").Output()
+			output.Write(bytes.TrimSpace(log))
+			// Update submodules
+			if _, err := os.Stat(dest + "/.gitmodules"); !os.IsNotExist(err) {
+				exec.Command(git, "-C", dest, "submodule", "sync").Run()
+				err := exec.Command(git, "-C", dest, "submodule", "update", "--init", "--recursive").Run()
+				if err != nil {
+					output.WriteString("\n------------ Submodule update failed: " + err.Error())
 				}
 			}
-		}()
-		routines++
+		}
 	}
+	if o := output.String(); len(o) != 0 {
+		fmt.Println(o)
+	}
+
 }
 
+// Check if git HEAD is in an attached state
 func headAttached(path string) bool {
 	f, err := os.Open(path + "/.git/HEAD")
 	if err != nil {
@@ -169,24 +152,21 @@ func headAttached(path string) bool {
 	return false
 }
 
-// clean removes disabled bundles from the file system
-func (*manager) clean(bundles []string) {
+// Clean removes disabled bundles from the file system
+func Clean() {
 	dirs, _ := filepath.Glob(root + "/*")
 	var match bool
 	for _, d := range dirs {
 		match = false
 		for _, b := range bundles {
-			if i := strings.Index(b, ":"); i >= 0 {
-				b = b[:i]
-			}
-			if d[strings.LastIndexAny(d, "/\\")+1:] == strings.Split(b, "/")[1] {
+			if d[strings.LastIndexAny(d, "/\\")+1:] == strings.Split(b.repo, "/")[1] {
 				match = true
 				break
 			}
 		}
 		if !match {
 			fmt.Print(sep)
-			if *dry {
+			if *dryrun {
 				fmt.Println(d, "would be removed.")
 				return
 			}
@@ -206,10 +186,8 @@ func (*manager) clean(bundles []string) {
 	}
 }
 
-// bundles returns the bundle list obtained from Vim.
-// The format of a bundle is "author/project[:branch][/sub/directory]", with
-// "/sub/directory" cut off.
-func getBundles(bs ...string) []string {
+// Bundles returns the bundle list output by Vim
+func Bundles(bs ...string) []Bundle {
 	args := []string{
 		"-Nesc", // vimrc won't be sourced
 		"set rtp+=~/.vim | let g:_vundle = 1 |" +
@@ -219,29 +197,47 @@ func getBundles(bs ...string) []string {
 	if err != nil {
 		// log.Fatal(err)
 	}
-	bundles := append(strings.Fields(string(out)), bs...)
 
-	for i, v := range bundles {
-		var oneSlash bool
-		// index the second slash
-		idx := strings.IndexFunc(v, func(r rune) bool {
-			if r == '/' {
-				if oneSlash == true {
-					return true
-				}
-				oneSlash = true
-			}
-			return false
-		})
-		if idx != -1 {
-			bundles[i] = v[:idx]
-		}
+	bundlesRaw := strings.Fields(string(out))
+	bundles := make([]Bundle, len(bundlesRaw))
+	for i, v := range bundlesRaw {
+		bundles[i] = bundleDecode(v)
 	}
 	return bundles
 }
 
-// helptags generates Vim HELP tags for all bundles
-func helptags() {
+// Decode a bundle of format: author/project[:branch][/sub/directory]
+func bundleDecode(bi string) (bo Bundle) {
+	var oneSlash bool
+	// index the second slash
+	slash2 := strings.IndexFunc(bi, func(r rune) bool {
+		if r == '/' {
+			if oneSlash == true {
+				return true
+			}
+			oneSlash = true
+		}
+		return false
+	})
+	// remove [/sub/directory]
+	if slash2 != -1 {
+		bi = bi[:slash2]
+	}
+	bo = Bundle{bi, ""}
+	// if [:branch] is present
+	if bindex := strings.Index(bi, ":"); bindex >= 0 {
+		bo.repo = (bi)[:bindex]
+		if len(bi) == bindex+1 {
+			bo.branch = runtime.GOOS + "_" + runtime.GOARCH
+		} else {
+			bo.branch = (bi)[bindex+1:]
+		}
+	}
+	return
+}
+
+// Helptags generates Vim HELP tags for all bundles
+func Helptags() {
 	args := []string{
 		"-Nesu",
 		"NONE",

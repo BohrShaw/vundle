@@ -34,7 +34,8 @@ var (
 	routines         = flag.Int("r", 12, "max number of routines")
 	bundles          = Bundles()
 	_user, _         = user.Current()
-	root             = _user.HomeDir + "/.vim/bundle"
+	home             = _user.HomeDir
+	root             = home + "/.vim/bundle"
 	git, gitNotExist = exec.LookPath("git")
 	sep              = "============ "
 )
@@ -188,15 +189,23 @@ func Clean() {
 
 // Bundles returns the bundle list output by Vim
 func Bundles(bs ...string) []Bundle {
+	vimrc := "NONE"
+	for _, f := range []string{".vimrc", ".vim/vimrc", "_vimrc", "vimfiles/vimrc"} {
+		ff := home + "/" + f
+		_, err := os.Stat(ff)
+		if os.IsNotExist(err) {
+			continue
+		} else {
+			vimrc = ff
+		}
+	}
 	args := []string{
-		"-Nesc", // vimrc won't be sourced
-		"set rtp+=~/.vim | let g:_vundle = 1 |" +
-			"runtime vimrc.bundle | put =dundles | 2,p | q!",
+		"-Nesu", vimrc,
+		"--cmd", "let g:vundle = 1",
+		"-c", "put =dundles | 2,print | quit!",
 	}
-	out, err := exec.Command("vim", args...).Output()
-	if err != nil {
-		// log.Fatal(err)
-	}
+	// there could be error even though the output is correct
+	out, _ := exec.Command("vim", args...).Output()
 
 	bundlesRaw := strings.Fields(string(out))
 	bundles := make([]Bundle, len(bundlesRaw))
@@ -206,7 +215,7 @@ func Bundles(bs ...string) []Bundle {
 	return bundles
 }
 
-// Decode a bundle of format: author/project[:branch][/sub/directory]
+// Decode a bundle of format: author/project[:[branch]][/sub/directory]
 func bundleDecode(bi string) (bo Bundle) {
 	var oneSlash bool
 	// index the second slash
@@ -224,7 +233,7 @@ func bundleDecode(bi string) (bo Bundle) {
 		bi = bi[:slash2]
 	}
 	bo = Bundle{bi, ""}
-	// if [:branch] is present
+	// if [:[branch]] is present
 	if bindex := strings.Index(bi, ":"); bindex >= 0 {
 		bo.repo = (bi)[:bindex]
 		if len(bi) == bindex+1 {

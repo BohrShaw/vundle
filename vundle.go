@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -208,15 +209,32 @@ func Bundles(bs ...string) []Bundle {
 	out, _ := exec.Command("vim", args...).Output()
 
 	bundlesRaw := strings.Fields(string(out))
-	bundles := make([]Bundle, len(bundlesRaw))
-	for i, v := range bundlesRaw {
-		bundles[i] = bundleDecode(v)
+	if len(bundlesRaw) == 0 {
+		log.Fatal("The bundle list 'g:dundles' defined in Vim is empty.")
 	}
-	return bundles
+	bundles := make([]Bundle, len(bundlesRaw))
+	i := 0
+	for _, v := range bundlesRaw {
+		b, err := bundleDecode(v)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		bundles[i] = b
+		i++
+	}
+	return bundles[:i]
 }
 
 // Decode a bundle of format: author/project[:[branch]][/sub/directory]
-func bundleDecode(bi string) (bo Bundle) {
+func bundleDecode(bi string) (bo Bundle, _ error) {
+	bundleFormat := regexp.MustCompile(
+		`^[[:word:]-.]+/[[:word:]-.]+` + // author/project
+			`(:([[:word:]-.]+)?)?` + // [:[branch]]
+			`([[:word:]-.]+/)*[[:word:]-.]*$`) // [/sub/directory]
+	if !bundleFormat.MatchString(bi) {
+		return bo, errors.New("wrong bundle format: " + bi)
+	}
 	var oneSlash bool
 	// index the second slash
 	slash2 := strings.IndexFunc(bi, func(r rune) bool {
@@ -242,7 +260,7 @@ func bundleDecode(bi string) (bo Bundle) {
 			bo.branch = (bi)[bindex+1:]
 		}
 	}
-	return
+	return bo, nil
 }
 
 // Helptags generates Vim HELP tags for all bundles

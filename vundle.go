@@ -203,7 +203,7 @@ func Bundles(bs ...string) []Bundle {
 	args := []string{
 		"-Nesu", vimrc,
 		"--cmd", "let g:vundle = 1",
-		"-c", "put =dundles | 2,print | quit!",
+		"-c", "put =dundles | 1,print | quit!",
 	}
 	// there could be error even though the output is correct
 	out, _ := exec.Command("vim", args...).Output()

@@ -265,18 +265,13 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 
 // Helptags generates Vim HELP tags for all bundles
 func Helptags() {
+	overwrite := "0"
+	if *update {
+		overwrite = "1"
+	}
 	args := []string{
-		"-Nesu",
-		"NONE",
-		"--cmd",
-		`if &rtp !~# '\v[\/]\.vim[,|$]' | set rtp^=~/.vim | endif` +
-			"| call rtp#inject() | Helptags" +
-			func() string {
-				if *update {
-					return "!"
-				}
-				return ""
-			}() + "| qall",
+		"-Nes", "--cmd",
+		"set rtp^=~/.vim | call helptags#(" + overwrite + ") | qall!",
 	}
 	if exec.Command("vim", args...).Run() != nil {
 		log.Printf("Fail generating HELP tags.")

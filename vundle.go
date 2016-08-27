@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -190,31 +191,19 @@ func Clean() {
 
 // Bundles returns the bundle list output by Vim
 func Bundles(bs ...string) []Bundle {
-	vimrc := "NONE"
-	for _, f := range []string{".vimrc", ".vim/vimrc", "_vimrc", "vimfiles/vimrc"} {
-		ff := home + "/" + f
-		_, err := os.Stat(ff)
-		if os.IsNotExist(err) {
-			continue
-		} else {
-			vimrc = ff
-		}
+	dundles := home + "/.vim/tmp/dundles"
+	content, err := ioutil.ReadFile(dundles)
+	if err != nil {
+		log.Fatal("Error reading the bundle-spec file: " + dundles)
 	}
-	args := []string{
-		"-Nesu", vimrc,
-		"--cmd", "let g:vundle = 1",
-		"-c", "put =dundles | 1,print | quit!",
-	}
-	// there could be error even though the output is correct
-	out, _ := exec.Command("vim", args...).Output()
+	bundlesRaw := strings.Split(string(content), "\n")
 
-	bundlesRaw := strings.Fields(string(out))
-	if len(bundlesRaw) == 0 {
-		log.Fatal("The bundle list 'g:dundles' defined in Vim is empty.")
-	}
 	bundles := make([]Bundle, len(bundlesRaw))
 	i := 0
 	for _, v := range bundlesRaw {
+		if v == "" {
+			continue
+		}
 		b, err := bundleDecode(v)
 		if err != nil {
 			log.Println(err)

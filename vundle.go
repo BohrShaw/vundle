@@ -191,7 +191,7 @@ func Clean() {
 
 // Bundles returns the bundle list output by Vim
 func Bundles(bs ...string) []Bundle {
-	dundles := home + "/.vim/tmp/dundles"
+	dundles := home + "/.vimtmp/dundles"
 	content, err := ioutil.ReadFile(dundles)
 	if err != nil {
 		log.Fatal("Error reading the bundle-spec file: " + dundles)

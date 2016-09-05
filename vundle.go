@@ -113,10 +113,14 @@ func Sync(b Bundle) {
 			output.WriteString("cloned.")
 		}
 	} else if *update && headAttached(dest) {
-		cmd.Dir = dest
-		cmd.Args = strings.Fields("git pull")
-		out, err := cmd.Output()
+	Pull:
+		pullCount := uint8(0)
+		out, err := exec.Command(git, "-C", dest, "pull").Output()
 		if err != nil {
+			if pullCount < 3 {
+				pullCount++
+				goto Pull
+			}
 			output.WriteString(sep + url + " pull failed: " + err.Error())
 		} else if len(out) != 0 && out[0] != 'A' { // out isn't "Already up-to-date"
 			output.WriteString(sep + url + " updated.\n")

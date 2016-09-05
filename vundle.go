@@ -10,7 +10,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -189,30 +188,55 @@ func Clean() {
 	}
 }
 
-// Bundles returns the bundle list output by Vim
-func Bundles(bs ...string) []Bundle {
-	dundles := home + "/.vimtmp/dundles"
-	content, err := ioutil.ReadFile(dundles)
-	if err != nil {
-		log.Fatal("Error reading the bundle-spec file: " + dundles)
-	}
-	bundlesRaw := strings.Split(string(content), "\n")
-
-	bundles := make([]Bundle, len(bundlesRaw))
+// Bundles returns the bundle list whose format is suitable for management.
+func Bundles() []Bundle {
+	rbundles := BundlesRaw()
+	bundles := make([]Bundle, len(rbundles))
 	i := 0
-	for _, v := range bundlesRaw {
-		if v == "" {
-			continue
-		}
+	for _, v := range rbundles {
 		b, err := bundleDecode(v)
 		if err != nil {
-			log.Println(err)
+			fmt.Println(err)
 			continue
 		}
 		bundles[i] = b
 		i++
 	}
 	return bundles[:i]
+}
+
+// BundlesRaw returns the raw bundle list by parsing a specialized VimL file.
+func BundlesRaw(files ...string) []string {
+	file := home + "/.vim/vimrc.bundle"
+	if files != nil {
+		file = files[0]
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	bundles := make([]string, 0, 100)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if regexp.MustCompile(`^\s*"`).Match(line) {
+			continue
+		}
+		if i := bytes.Index(line, []byte("Bundle")); i >= 0 {
+			j := i + 6
+			if string(line[j:j+2]) == "s(" {
+				if k := bytes.LastIndex(line, []byte(")")); k >= 0 {
+					bundles = uappend(bundles, regexp.MustCompile(`[^ ,'"]+`).FindAllString(string(line[j+3:k-1]), -1)...)
+				} else {
+					log.Println("Arguments to Bundles() should be on a sigle line.")
+				}
+			} else if i := regexp.MustCompile(`^\w*\(`).FindIndex(line[j:]); i != nil {
+				bundles = uappend(bundles, regexp.MustCompile(`[^ '"]+`).FindString(string(line[j+i[1]+1:])))
+			}
+		}
+	}
+	return bundles
 }
 
 // Decode a bundle of format: author/project[:[branch]][/sub/directory]
@@ -222,7 +246,7 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 			`(:([[:word:]-.]+)?)?` + // [:[branch]]
 			`([[:word:]-.]+/)*[[:word:]-.]*$`) // [/sub/directory]
 	if !bundleFormat.MatchString(bi) {
-		return bo, errors.New("wrong bundle format: " + bi)
+		return bo, errors.New("Wrong bundle format: " + bi)
 	}
 	var oneSlash bool
 	// index the second slash
@@ -250,6 +274,24 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 		}
 	}
 	return bo, nil
+}
+
+// uappend appends elements to a slice only if an element is not yet in the slice.
+func uappend(slice []string, elems ...string) (result []string) {
+	result = slice
+	for _, e := range elems {
+		equal := false
+		for _, s := range slice {
+			if s == e {
+				equal = true
+				break
+			}
+		}
+		if !equal {
+			result = append(result, e)
+		}
+	}
+	return
 }
 
 // Helptags generates Vim HELP tags for all bundles

@@ -1,0 +1,24 @@
+" This is a mock file representing a typical Vim file containing bundles specs.
+
+" 8 bundles - 1 duplicates
+if Bundles('Bohrshaw/vim-sneak')
+if Bundles('Bohrshaw/vim-sneak') " 'Justinmk/vim-sneak'
+if Bundles('Tpope/vim-git') &&
+      \ Bundles('tpope/vim-fugitive', 'tpope/vim-rhubarb')
+if Bundles('tommcdo/vim-ninja-feet', 'kana/vim-textobj-indent', 'Tpope/vim-eunuch')
+
+" 2 bundles
+if Bundle('Andrewradev/switch.vim', {'c': ['Switch', 'SwitchReverse']})
+if has('python') && Bundle('Sirver/ultisnips', {
+      \ 'm': ['i <M-l>', 'i <C-g>l', 'x <M-l>'] })
+
+" 3 bundles
+call BundleRun('Tpope/vim-unimpaired')
+        autocmd CursorHold * call BundleRun('Wellle/targets.vim') |
+if BundlePath('Kana/vim-textobj-user')
+
+" 0 bundles
+" call Bundles('kana/vim-arpeggio')
+" call BundlePath('kana/vim-submode')
+call timer_start(10, function('BundleRun', ['Jamessan/vim-gnupg']))
+autocmd User Bundle call s:incsearch_mapping()

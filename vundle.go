@@ -171,7 +171,7 @@ func Clean() {
 			fmt.Print(sep)
 			if *dryrun {
 				fmt.Println(d, "would be removed.")
-				return
+				continue
 			}
 			var err error
 			// Note: on Windows, read-only files woundn't be removed

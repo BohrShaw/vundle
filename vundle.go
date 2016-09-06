@@ -280,12 +280,15 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 	return bo, nil
 }
 
-// uappend appends elements to a slice only if an element is not yet in the slice.
+// uappend appends elements to a slice whose elements remains distinct,
+// ignoring case sensitivity.
 func uappend(slice []string, elems ...string) (result []string) {
 	result = slice
 	for _, e := range elems {
+		e = strings.ToLower(e)
 		equal := false
 		for _, s := range slice {
+			s = strings.ToLower(s)
 			if s == e {
 				equal = true
 				break

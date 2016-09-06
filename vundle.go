@@ -308,7 +308,14 @@ func Helptags() {
 		"-Nes", "--cmd",
 		"set rtp^=~/.vim | call helptags#(" + overwrite + ") | qall!",
 	}
-	if exec.Command("vim", args...).Run() != nil {
+	vim, err := exec.LookPath("vim")
+	if err != nil {
+		vim, err = exec.LookPath("nvim")
+		if err != nil {
+			vim, err = exec.LookPath("gvim")
+		}
+	}
+	if exec.Command(vim, args...).Run() != nil {
 		log.Printf("Fail generating HELP tags.")
 	}
 }

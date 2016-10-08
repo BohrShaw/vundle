@@ -211,7 +211,7 @@ func Bundles() []Bundle {
 
 // BundlesRaw returns the raw bundle list by parsing a specialized VimL file.
 func BundlesRaw(files ...string) []string {
-	file := home + "/.vim/vimrc.bundle"
+	file := home + "/.vim/init..vim"
 	if files != nil {
 		file = files[0]
 	}

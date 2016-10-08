@@ -8,7 +8,7 @@ Be aware that this is currently a **personalized** tool.
     go get -u github.com/bohrshaw/vundle
     vundle -h
 
-1. The bundle list is get by parsing `~/.vim/vimrc.bundle` with a simplified
+1. The bundle list is get by parsing `~/.vim/init..vim` with a simplified
    Vim pattern `Bundle\a*(['"]\zs[^'"]+`.
 1. A bundle is of this format: `author/project[:[branch]][/sub/directory]`.
 1. Bundles are installed into `~/.vim/bundle`.

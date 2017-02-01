@@ -209,34 +209,35 @@ func Bundles() []Bundle {
 	return bundles[:i]
 }
 
-// BundlesRaw returns the raw bundle list by parsing a specialized VimL file.
+// BundlesRaw returns the raw bundle list by parsing Vim init files.
 func BundlesRaw(files ...string) []string {
-	file := home + "/.vim/init..vim"
-	if files != nil {
-		file = files[0]
+	if files == nil {
+		files = []string{home + "/.vim/init..vim", home + "/.vim/init+.vim"}
 	}
-	f, err := os.Open(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
 	bundles := make([]string, 0, 100)
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if regexp.MustCompile(`^\s*"`).Match(line) {
-			continue
+	for _, file := range files {
+		f, err := os.Open(file)
+		if err != nil {
+			log.Fatal(err)
 		}
-		if i := bytes.Index(line, []byte("Bundle")); i >= 0 {
-			j := i + 6
-			if string(line[j:j+2]) == "s(" {
-				if k := bytes.LastIndex(line, []byte(")")); k >= 0 {
-					bundles = uappend(bundles, regexp.MustCompile(`[^ ,'"]+`).FindAllString(string(line[j+3:k-1]), -1)...)
-				} else {
-					log.Println("Arguments to Bundles() should be on a sigle line.")
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			if regexp.MustCompile(`^\s*"`).Match(line) {
+				continue
+			}
+			if i := bytes.Index(line, []byte("Bundle")); i >= 0 {
+				j := i + 6
+				if string(line[j:j+2]) == "s(" {
+					if k := bytes.LastIndex(line, []byte(")")); k >= 0 {
+						bundles = uappend(bundles, regexp.MustCompile(`[^ ,'"]+`).FindAllString(string(line[j+3:k-1]), -1)...)
+					} else {
+						log.Println("Arguments to Bundles() should be on a sigle line.")
+					}
+				} else if i := regexp.MustCompile(`^\w*\(`).FindIndex(line[j:]); i != nil {
+					bundles = uappend(bundles, regexp.MustCompile(`[^ '"]+`).FindString(string(line[j+i[1]+1:])))
 				}
-			} else if i := regexp.MustCompile(`^\w*\(`).FindIndex(line[j:]); i != nil {
-				bundles = uappend(bundles, regexp.MustCompile(`[^ '"]+`).FindString(string(line[j+i[1]+1:])))
 			}
 		}
 	}

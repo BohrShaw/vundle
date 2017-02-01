@@ -21,9 +21,9 @@ import (
 	"sync"
 )
 
-// Bundle specify the repository of format "author/project" and the branch.
+// Bundle specify the repository format.
 type Bundle struct {
-	repo, branch string
+	domain, repo, branch string
 }
 
 var (
@@ -81,7 +81,7 @@ func main() {
 // Sync clone or update a bundle
 func Sync(b Bundle) {
 	cmd := &exec.Cmd{Path: git}
-	url := "https://github.com/" + b.repo
+	url := "https://" + b.domain + b.repo
 	dest := root + "/" + strings.Split(b.repo, "/")[1]
 	var output bytes.Buffer
 
@@ -244,39 +244,23 @@ func BundlesRaw(files ...string) []string {
 	return bundles
 }
 
-// Decode a bundle of format: author/project[:[branch]][/sub/directory]
+// Decode a bundle of format: [domain.com/]author/project[:[branch]][/sub/directory]
 func bundleDecode(bi string) (bo Bundle, _ error) {
-	bundleFormat := regexp.MustCompile(
-		`^[[:word:]-.]+/[[:word:]-.]+` + // author/project
+	format := regexp.MustCompile(
+		`^([^/]+\.[^/]+/)?` + // [domain.com/]
+			`([[:word:]-.]+/[[:word:]-.]+)` + // author/project
 			`(:([[:word:]-.]+)?)?` + // [:[branch]]
-			`([[:word:]-.]+/)*[[:word:]-.]*$`) // [/sub/directory]
-	if !bundleFormat.MatchString(bi) {
+			`(?:/[[:word:]-.]+)*$`) // [/sub/directory]
+	matches := format.FindStringSubmatch(bi)
+	if len(matches) == 0 {
 		return bo, errors.New("Wrong bundle format: " + bi)
 	}
-	var oneSlash bool
-	// index the second slash
-	slash2 := strings.IndexFunc(bi, func(r rune) bool {
-		if r == '/' {
-			if oneSlash == true {
-				return true
-			}
-			oneSlash = true
-		}
-		return false
-	})
-	// remove [/sub/directory]
-	if slash2 != -1 {
-		bi = bi[:slash2]
+	bo = Bundle{matches[1], matches[2], matches[4]}
+	if bo.domain == "" {
+		bo.domain = "github.com/"
 	}
-	bo = Bundle{bi, ""}
-	// if [:[branch]] is present
-	if bindex := strings.Index(bi, ":"); bindex >= 0 {
-		bo.repo = (bi)[:bindex]
-		if len(bi) == bindex+1 {
-			bo.branch = runtime.GOOS + "_" + runtime.GOARCH
-		} else {
-			bo.branch = (bi)[bindex+1:]
-		}
+	if matches[3] == ":" {
+		bo.branch = runtime.GOOS + "_" + runtime.GOARCH
 	}
 	return bo, nil
 }

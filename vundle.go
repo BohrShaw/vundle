@@ -244,7 +244,7 @@ func BundlesRaw(files ...string) []string {
 	return bundles
 }
 
-// Decode a bundle of format: [domain.com/]author/project[:[branch]][/sub/directory]
+// Decode a bundle of format: [domain.com(/|:)]author/project[:[branch]][/sub/directory]
 func bundleDecode(bi string) (bo Bundle, _ error) {
 	format := regexp.MustCompile(
 		`^([^/]+\.[^/]+([/:]))?` + // [domain.com/]

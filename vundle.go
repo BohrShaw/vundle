@@ -23,7 +23,7 @@ import (
 
 // Bundle specify the repository format.
 type Bundle struct {
-	domain, repo, branch string
+	prefix, domain, repo, branch string
 }
 
 var (
@@ -81,7 +81,7 @@ func main() {
 // Sync clone or update a bundle
 func Sync(b Bundle) {
 	cmd := &exec.Cmd{Path: git}
-	url := "https://" + b.domain + b.repo
+	url := b.prefix + b.domain + b.repo
 	dest := root + "/" + strings.Split(b.repo, "/")[1]
 	var output bytes.Buffer
 
@@ -247,7 +247,7 @@ func BundlesRaw(files ...string) []string {
 // Decode a bundle of format: [domain.com/]author/project[:[branch]][/sub/directory]
 func bundleDecode(bi string) (bo Bundle, _ error) {
 	format := regexp.MustCompile(
-		`^([^/]+\.[^/]+/)?` + // [domain.com/]
+		`^([^/]+\.[^/]+([/:]))?` + // [domain.com/]
 			`([[:word:]-.]+/[[:word:]-.]+)` + // author/project
 			`(:([[:word:]-.]+)?)?` + // [:[branch]]
 			`(?:/[[:word:]-.]+)*$`) // [/sub/directory]
@@ -255,11 +255,14 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 	if len(matches) == 0 {
 		return bo, errors.New("Wrong bundle format: " + bi)
 	}
-	bo = Bundle{matches[1], matches[2], matches[4]}
+	bo = Bundle{"https://", matches[1], matches[3], matches[5]}
+	if matches[2] == ":" {
+		bo.prefix = "git@"
+	}
 	if bo.domain == "" {
 		bo.domain = "github.com/"
 	}
-	if matches[3] == ":" {
+	if matches[4] == ":" {
 		bo.branch = runtime.GOOS + "_" + runtime.GOARCH
 	}
 	return bo, nil

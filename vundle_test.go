@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -25,18 +26,33 @@ func TestBundlesRaw(t *testing.T) {
 }
 
 func TestBundleDecode(t *testing.T) {
-	bs := []string{"foo/bar", "foo/bar/baz", "foo/bar/baz/bas",
-		"a/b:", "a/b:br", "a/b:br/dir/dir", "a/b:br/dir/dir/"}
-	fr := regexp.MustCompile(`^[[:word:]-.]+/[[:word:]-.]+$`)
-	fb := regexp.MustCompile(`^[[:word:]-.]*$`)
-	for _, b := range bs {
-		bd, err := bundleDecode(b)
-		if err != nil {
-			t.Errorf("Bundle format %v is unrecognized.", b)
-			continue
-		}
-		if !fr.MatchString(bd.repo) || !fb.MatchString(bd.branch) {
-			t.Errorf("Bundle format %v is mis-decoded as %v.", b, bd)
+	repo := "author/project"
+	for _, d := range []string{"domain.com/", "sub.domain.com/", "domain.com:", "sub.domain.com:", ""} {
+		for _, b := range []string{":branch", ":", ""} {
+			for _, s := range []string{"/sub/directory", "/sub-directory", ""} {
+				c := d + repo + b + s
+				r, err := bundleDecode(c)
+				if err != nil {
+					t.Errorf("Bundle '%v' is unrecognized while it should be.", r)
+					continue
+				}
+				protSSH := strings.HasSuffix(d, ":")
+				if protSSH && r.prefix == "git@" || !protSSH && r.prefix == "https://" {
+				} else {
+					t.Errorf("'%v' is mis-decoded with prefix '%v'", c, r.prefix)
+				}
+				if d == "" && r.domain == "github.com/" || d != "" && r.domain == d {
+				} else {
+					t.Errorf("'%v' is mis-decoded with domain '%v'", c, r.domain)
+				}
+				if r.repo != repo {
+					t.Errorf("'%v' is mis-decoded with repo '%v'", c, r.repo)
+				}
+				if b == ":branch" && r.branch == "branch" || b == ":" && r.branch == PLATFORM || b == "" && r.branch == "" {
+				} else {
+					t.Errorf("'%v' is mis-decoded with branch '%v'", c, r.branch)
+				}
+			}
 		}
 	}
 }

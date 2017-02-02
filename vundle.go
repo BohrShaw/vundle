@@ -26,6 +26,9 @@ type Bundle struct {
 	prefix, domain, repo, branch string
 }
 
+// PLATFORM is used for the platform specific branch name.
+const PLATFORM = runtime.GOOS + "_" + runtime.GOARCH
+
 var (
 	update           = flag.Bool("u", false, "update bundles")
 	_filter          = flag.String("f", ".", "filter bundles with a go regexp")
@@ -247,10 +250,10 @@ func BundlesRaw(files ...string) []string {
 // Decode a bundle of format: [domain.com(/|:)]author/project[:[branch]][/sub/directory]
 func bundleDecode(bi string) (bo Bundle, _ error) {
 	format := regexp.MustCompile(
-		`^([^/]+\.[^/]+([/:]))?` + // [domain.com/]
-			`([[:word:]-.]+/[[:word:]-.]+)` + // author/project
-			`(:([[:word:]-.]+)?)?` + // [:[branch]]
-			`(?:/[[:word:]-.]+)*$`) // [/sub/directory]
+		`^([^/]+?\.[^/]+?([/:]))?` + // [domain.com/]
+			`([[:word:]-.]+?/[[:word:]-.]+?)` + // author/project
+			`(:([[:word:]-.]+?)?)?` + // [:[branch]]
+			`(?:/[[:word:]-.]+?)*$`) // [/sub/directory]
 	matches := format.FindStringSubmatch(bi)
 	if len(matches) == 0 {
 		return bo, errors.New("Wrong bundle format: " + bi)
@@ -263,7 +266,7 @@ func bundleDecode(bi string) (bo Bundle, _ error) {
 		bo.domain = "github.com/"
 	}
 	if matches[4] == ":" {
-		bo.branch = runtime.GOOS + "_" + runtime.GOARCH
+		bo.branch = PLATFORM
 	}
 	return bo, nil
 }

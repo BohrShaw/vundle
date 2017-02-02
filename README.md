@@ -1,15 +1,15 @@
 # Vundle
 
-`vundle` is a command line tool for managing Vim packages/plugins/bundles.
+`vundle` is a command line tool for managing Vim packages/plugins/bundles. It's
+fast to clone/update/clean bundles. See `vundle -h` for features.
+
 Be aware that this is currently a **personalized** tool.
 
-## Usage
+## Specification
 
-    go get -u github.com/bohrshaw/vundle
-    vundle -h
-
-1. The bundle list is get by parsing `~/.vim/init..vim` and `~/.vim/init+.vim`
-   for lines matching `Bundle\a*(['"]`, and extracting the string like
+1. The bundle list is get by parsing files `~/.vim/init..vim` and
+   `~/.vim/init+.vim` for lines matching `Bundle\w*\(['"]`, and in which lines
+   extracting the strings like
    `[domain.com(/|:)]author/project[:[branch]][/sub/directory]`.
 1. Bundles are installed into `~/.vim/bundle`.
 1. To generate Vim help tags files, a function `helptags#(overwrite_or_not)`

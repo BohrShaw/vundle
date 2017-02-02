@@ -197,7 +197,11 @@ func Clean() {
 
 // Bundles returns the bundle list whose format is suitable for management.
 func Bundles() []Bundle {
-	rbundles := BundlesRaw()
+	files, _ := filepath.Glob(home + "/.vim/init?.vim")
+	if files == nil {
+		log.Fatal("No files like '~/.vim/init?.vim' found.")
+	}
+	rbundles := BundlesRaw(files)
 	bundles := make([]Bundle, len(rbundles))
 	i := 0
 	for _, v := range rbundles {
@@ -213,10 +217,7 @@ func Bundles() []Bundle {
 }
 
 // BundlesRaw returns the raw bundle list by parsing Vim init files.
-func BundlesRaw(files ...string) []string {
-	if files == nil {
-		files = []string{home + "/.vim/init..vim", home + "/.vim/init+.vim"}
-	}
+func BundlesRaw(files []string) []string {
 	bundles := make([]string, 0, 100)
 	for _, file := range files {
 		f, err := os.Open(file)

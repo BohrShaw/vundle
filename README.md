@@ -7,9 +7,8 @@ Be aware that this is currently a **personalized** tool.
 
 ## Specification
 
-1. The bundle list is get by parsing files `~/.vim/init..vim` and
-   `~/.vim/init+.vim` for lines matching `Bundle\w*\(['"]`, and in which lines
-   extracting the strings like
+1. The bundle list is get by parsing files like `~/.vim/init?.vim` for lines
+   matching `Bundle\w*\(['"]`, and in which lines extracting the strings like
    `[domain.com(/|:)]author/project[:[branch]][/sub/directory]`.
 1. Bundles are installed into `~/.vim/bundle`.
 1. To generate Vim help tags files, a function `helptags#(overwrite_or_not)`

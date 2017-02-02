@@ -12,7 +12,7 @@ func TestBundlesRaw(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	bundles := BundlesRaw(f)
+	bundles := BundlesRaw([]string{f})
 	t.Log(bundles)
 	count := len(bundles)
 	if count != 12 {

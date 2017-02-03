@@ -36,21 +36,25 @@ func TestBundleDecode(t *testing.T) {
 					t.Errorf("Bundle '%v' is unrecognized while it should be.", r)
 					continue
 				}
+				var msg string
 				protSSH := strings.HasSuffix(d, ":")
 				if protSSH && r.prefix == "git@" || !protSSH && r.prefix == "https://" {
 				} else {
-					t.Errorf("'%v' is mis-decoded with prefix '%v'", c, r.prefix)
+					msg += " prefix \"" + r.prefix + "\""
 				}
 				if d == "" && r.domain == "github.com/" || d != "" && r.domain == d {
 				} else {
-					t.Errorf("'%v' is mis-decoded with domain '%v'", c, r.domain)
+					msg += " domain \"" + r.domain + "\""
 				}
 				if r.repo != repo {
-					t.Errorf("'%v' is mis-decoded with repo '%v'", c, r.repo)
+					msg += " repo \"" + r.repo + "\""
 				}
 				if b == ":branch" && r.branch == "branch" || b == ":" && r.branch == PLATFORM || b == "" && r.branch == "" {
 				} else {
-					t.Errorf("'%v' is mis-decoded with branch '%v'", c, r.branch)
+					msg += " branch \"" + r.branch + "\""
+				}
+				if msg != "" {
+					t.Errorf("Bundle \"%v\" is mis-decoded with" + msg + ".", c)
 				}
 			}
 		}
